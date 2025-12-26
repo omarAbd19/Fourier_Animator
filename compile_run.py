@@ -2,7 +2,7 @@ import subprocess
 from pathlib import Path
 
 
-FILES_TO_COMPILE = ["src/main.c", "src/fourier.c", "src/shapes.c"]
+FILES_TO_COMPILE = ["src/main.c", "src/fourier.c", "src/shapes.c", "src/ui.c"]
 PATH_TO_RAYLIB_DLL = "libs/raylibdll.lib"
 INCLUDE_PATH = "includes"
 MAIN_EXE = "main.exe"

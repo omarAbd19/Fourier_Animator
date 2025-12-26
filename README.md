@@ -1,6 +1,6 @@
 # Fourier Animator
 
-A real-time visualization tool that demonstrates the Discrete Fourier Transform (DFT) through animated epicycles. Draw any shape and watch it being reconstructed by rotating circles!
+A real-time visualization tool that demonstrates the Discrete Fourier Transform (DFT) through animated epicycles in pure C. Draw any shape and watch it being reconstructed by rotating circles!. 
 
 ![C](https://img.shields.io/badge/C-00599C?style=flat&logo=c&logoColor=white)
 ![Raylib](https://img.shields.io/badge/Raylib-5.5-black?style=flat)
@@ -17,6 +17,7 @@ A real-time visualization tool that demonstrates the Discrete Fourier Transform 
 - **Interactive Controls**
   - Adjustable animation speed (0.1x – 5x)
   - Line thickness customization
+  - Line color selection (6 presets)
   - Real-time Fourier coefficient display
 - **Clean UI** – Modern dark theme with intuitive controls
 
@@ -42,7 +43,7 @@ python compile_run.py
 Or compile manually:
 
 ```bash
-cl /W4 /WX /Iincludes src/main.c src/fourier.c src/shapes.c libs/raylibdll.lib
+cl /W4 /WX /Iincludes src/main.c src/fourier.c src/shapes.c src/ui.c libs/raylibdll.lib
 main.exe
 ```
 
@@ -69,6 +70,7 @@ main.exe
 |---------|-------------|
 | **Speed Slider** | Adjust animation speed (0.1x – 5x) |
 | **Line Size Slider** | Change trace line thickness |
+| **Line Color** | Pick from 6 color presets (Fire, Ocean, Lime, Purple, Gold, Cyan) |
 | **RESTART** | Reset and draw a new shape |
 
 ## 📁 Supported File Formats
@@ -129,6 +131,18 @@ Each $X[k]$ gives us an epicycle with:
 - Phase: $\arg(X[k])$
 - Frequency: $k$
 
+
+## 🤝 Wanna Help?
+
+Hey, if you find this cool or useful, feel free to mess around with it! You can:
+
+- Fork it and make it your own
+- Open a PR if you added something nice
+- Drop an issue if something's broken
+- Add your own shapes to the `shapes/` folder
+- Or just use it to learn – that's what it's here for!
+
+No pressure, no rules. Just have fun with it 🎉
 
 ## 📄 License
 

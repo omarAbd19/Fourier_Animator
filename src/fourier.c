@@ -1,4 +1,5 @@
 #include "fourier.h"
+#include <stdbool.h>
 
 complex_t complex_add(complex_t *a, complex_t *b)
 {
@@ -118,4 +119,78 @@ Vector2 draw_epicycles(epicycle_t *epic, int N, float t, float line_thickness)
     DrawCircle((int)x, (int)y, 4.0f * line_thickness, (Color){255, 100, 100, 255});
     
     return (Vector2){ x, y };
+}
+/* ========== Application State Functions ========== */
+
+void app_state_init(AppState *state) {
+    state->point_count = 0;
+    state->trace_count = 0;
+    state->dft_result = NULL;
+    state->epicycles = NULL;
+    
+    state->t = 0.0f;
+    state->speed = 1.0f;
+    state->frame_time = 0.0f;
+    state->line_thickness = 2.0f;
+    state->current_k = 0;
+    state->color_index = 0;
+    state->animation_done = false;
+    
+    state->is_drawing = false;
+    state->was_drawing = false;
+    state->proceed = false;
+    state->restart_clicked = false;
+    
+    state->num_shape_files = 0;
+    state->show_file_picker = false;
+    state->file_scroll = 0;
+}
+
+bool app_start_animation(AppState *state) {
+    if (state->point_count <= 0) return false;
+    
+    /* Free any existing data */
+    if (state->dft_result) { free(state->dft_result); state->dft_result = NULL; }
+    if (state->epicycles)  { free(state->epicycles);  state->epicycles = NULL; }
+    
+    /* Allocate and populate complex array from drawing points */
+    state->dft_result = (complex_t *)malloc(sizeof(complex_t) * state->point_count);
+    if (!state->dft_result) return false;
+    
+    for (int i = 0; i < state->point_count; i++) {
+        state->dft_result[i].real = state->drawing_points[i].x;
+        state->dft_result[i].imag = state->drawing_points[i].y;
+    }
+    
+    /* Compute DFT */
+    state->dft_result = DFT(state->dft_result, state->point_count);
+    if (!state->dft_result) return false;
+    
+    /* Convert to epicycles */
+    state->epicycles = dft_to_epicycles(state->dft_result, state->point_count);
+    if (!state->epicycles) return false;
+    
+    /* Reset animation state */
+    state->t = 0.0f;
+    state->trace_count = 0;
+    state->animation_done = false;
+    state->proceed = true;
+    
+    return true;
+}
+
+void app_reset(AppState *state) {
+    if (state->dft_result) { free(state->dft_result); state->dft_result = NULL; }
+    if (state->epicycles)  { free(state->epicycles);  state->epicycles = NULL; }
+    
+    state->point_count = 0;
+    state->trace_count = 0;
+    state->t = 0.0f;
+    state->proceed = false;
+    state->animation_done = false;
+    state->current_k = 0;
+    state->was_drawing = false;
+    state->is_drawing = false;
+    state->frame_time = 0.0f;
+    state->restart_clicked = true;
 }
