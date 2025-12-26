@@ -152,5 +152,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - [raylib](https://www.raylib.com/) – Simple and easy-to-use graphics library
 - [3Blue1Brown](https://www.youtube.com/watch?v=r6sGWTCMz2k) – Inspiration for Fourier visualization
+- [My Fourier Epicycles](https://www.myfourierepicycles.com/) – Some SVG sample files
 
 ---
