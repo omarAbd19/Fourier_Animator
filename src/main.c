@@ -1,5 +1,12 @@
+#define _CRT_SECURE_NO_WARNINGS
 #include "fourier.h"
+#include "shapes.h"
 #include <stdbool.h>
+#include <string.h>
+#include <io.h>
+
+#define MAX_SHAPE_FILES 20
+#define MAX_FILENAME_LEN 64
 
 /* UI Layout constants */
 #define PANEL_X         10
@@ -83,6 +90,33 @@ int main (void)
     float frame_time = 0.0f;
     bool restart_clicked = false;
     float line_thickness = 2.0f;
+    
+    /* Auto-draw shapes */
+    const char *shape_names[] = { "Circle", "Square", "Star", "Heart", "Infinity", "Spiral" };
+    int num_shapes = 6;
+    int shape_points = 500;  /* Number of points for generated shapes */
+    
+    /* Shape file browser */
+    char shape_files[MAX_SHAPE_FILES][MAX_FILENAME_LEN];
+    int num_shape_files = 0;
+    bool show_file_picker = false;
+    int file_scroll = 0;
+    
+    /* Scan for shape files on startup using _findfirst/_findnext */
+    {
+        struct _finddata_t fileinfo;
+        intptr_t handle = _findfirst("shapes/*.txt", &fileinfo);
+        if (handle != -1) {
+            do {
+                if (!(fileinfo.attrib & _A_SUBDIR) && num_shape_files < MAX_SHAPE_FILES) {
+                    strncpy(shape_files[num_shape_files], fileinfo.name, MAX_FILENAME_LEN - 1);
+                    shape_files[num_shape_files][MAX_FILENAME_LEN - 1] = '\0';
+                    num_shape_files++;
+                }
+            } while (_findnext(handle, &fileinfo) == 0 && num_shape_files < MAX_SHAPE_FILES);
+            _findclose(handle);
+        }
+    }
 
     SetTargetFPS(60);
     while (!WindowShouldClose())
@@ -91,7 +125,7 @@ int main (void)
             ClearBackground((Color){12, 14, 24, 255});
             
             /* Calculate panel height dynamically */
-            int panel_height = proceed ? 400 : 80;
+            int panel_height = proceed ? 400 : 290;
             Rectangle panel_rect = { (float)PANEL_X, (float)PANEL_Y, (float)PANEL_WIDTH, (float)panel_height };
             
             /* Check if mouse is over panel */
@@ -258,7 +292,135 @@ int main (void)
                     restart_clicked = true;
                 }
             } else {
-                DrawText("Draw something to begin!", PANEL_X + PANEL_PADDING, y_pos, 14, (Color){120, 120, 140, 255});
+                DrawText("Draw, pick a shape, or load file:", PANEL_X + PANEL_PADDING, y_pos, 14, (Color){120, 120, 140, 255});
+                y_pos += 25;
+                
+                /* Auto-draw shape buttons - 2 columns */
+                int btn_width = (PANEL_WIDTH - 3 * PANEL_PADDING) / 2;
+                int btn_height = 30;
+                float center_x = WINDOW_WIDTH / 2.0f;
+                float center_y = WINDOW_HEIGHT / 2.0f;
+                float shape_size = 250.0f;
+                
+                for (int i = 0; i < num_shapes; i++) {
+                    int col = i % 2;
+                    int row = i / 2;
+                    int btn_x = PANEL_X + PANEL_PADDING + col * (btn_width + PANEL_PADDING);
+                    int btn_y = y_pos + row * (btn_height + 8);
+                    
+                    if (DrawButton(btn_x, btn_y, btn_width, btn_height, shape_names[i],
+                                   (Color){50, 60, 90, 255}, (Color){70, 90, 130, 255})) {
+                        /* Generate the selected shape */
+                        switch (i) {
+                            case 0: index = generate_circle(drawing_points, center_x, center_y, shape_size, shape_points); break;
+                            case 1: index = generate_square(drawing_points, center_x, center_y, shape_size * 2, shape_points); break;
+                            case 2: index = generate_star(drawing_points, center_x, center_y, shape_size, shape_size * 0.4f, 5, shape_points); break;
+                            case 3: index = generate_heart(drawing_points, center_x, center_y, shape_size * 0.9f, shape_points); break;
+                            case 4: index = generate_infinity(drawing_points, center_x, center_y, shape_size * 1.5f, shape_points); break;
+                            case 5: index = generate_spiral(drawing_points, center_x, center_y, shape_size, shape_points); break;
+                        }
+                        
+                        /* Trigger DFT computation */
+                        complex_point = (complex_t *)malloc(sizeof(complex_t) * index);
+                        for (int j = 0; j < index; j++) {
+                            complex_point[j].real = drawing_points[j].x;
+                            complex_point[j].imag = drawing_points[j].y;
+                        }
+                        complex_point = DFT(complex_point, index);
+                        epicycles = dft_to_epicycles(complex_point, index);
+                        proceed = true;
+                        restart_clicked = true;
+                    }
+                }
+                
+                /* Load from file button */
+                y_pos += 3 * (btn_height + 8) + 10;
+                DrawLine(PANEL_X + PANEL_PADDING, y_pos, PANEL_X + PANEL_WIDTH - PANEL_PADDING, y_pos, PANEL_BORDER);
+                y_pos += 10;
+                
+                DrawText(TextFormat("Shape files (%d found):", num_shape_files), PANEL_X + PANEL_PADDING, y_pos, 12, (Color){100, 100, 120, 255});
+                y_pos += 18;
+                
+                /* Toggle file picker button */
+                const char *picker_text = show_file_picker ? "Hide Files" : "Browse Files...";
+                if (DrawButton(PANEL_X + PANEL_PADDING, y_pos, PANEL_WIDTH - 2 * PANEL_PADDING, btn_height, 
+                               picker_text, (Color){70, 50, 90, 255}, (Color){100, 70, 130, 255})) {
+                    show_file_picker = !show_file_picker;
+                    restart_clicked = true;
+                }
+                
+                /* File picker panel (shown to the right when active) */
+                if (show_file_picker && num_shape_files > 0) {
+                    int picker_x = PANEL_X + PANEL_WIDTH + 10;
+                    int picker_y = PANEL_Y;
+                    int picker_w = 200;
+                    int picker_h = 40 + num_shape_files * 32;
+                    if (picker_h > 400) picker_h = 400;
+                    
+                    Rectangle picker_rect = { (float)picker_x, (float)picker_y, (float)picker_w, (float)picker_h };
+                    DrawRectangleRounded(picker_rect, 0.05f, 8, PANEL_BG);
+                    DrawRectangleRoundedLines(picker_rect, 0.05f, 8, PANEL_BORDER);
+                    
+                    /* Check if mouse is over picker panel too */
+                    if (CheckCollisionPointRec(GetMousePosition(), picker_rect)) {
+                        mouse_on_panel = true;
+                    }
+                    
+                    DrawText("Select Shape File", picker_x + 10, picker_y + 10, 14, ACCENT_COLOR);
+                    
+                    int file_y = picker_y + 35;
+                    int visible_files = (picker_h - 45) / 32;
+                    
+                    /* Scroll with mouse wheel when hovering picker */
+                    if (CheckCollisionPointRec(GetMousePosition(), picker_rect)) {
+                        file_scroll -= (int)GetMouseWheelMove();
+                        if (file_scroll < 0) file_scroll = 0;
+                        if (file_scroll > num_shape_files - visible_files) 
+                            file_scroll = num_shape_files - visible_files;
+                        if (file_scroll < 0) file_scroll = 0;
+                    }
+                    
+                    for (int i = file_scroll; i < num_shape_files && i < file_scroll + visible_files; i++) {
+                        int btn_y_pos = file_y + (i - file_scroll) * 32;
+                        
+                        /* Truncate filename if too long */
+                        char display_name[24];
+                        strncpy(display_name, shape_files[i], 23);
+                        display_name[23] = '\0';
+                        if (strlen(shape_files[i]) > 23) {
+                            display_name[20] = '.';
+                            display_name[21] = '.';
+                            display_name[22] = '.';
+                        }
+                        
+                        if (DrawButton(picker_x + 10, btn_y_pos, picker_w - 20, 28, display_name,
+                                       (Color){50, 50, 70, 255}, (Color){70, 80, 110, 255})) {
+                            char filepath[128];
+                            snprintf(filepath, sizeof(filepath), "shapes/%s", shape_files[i]);
+                            index = load_shape_from_file(drawing_points, filepath, center_x, center_y, 500.0f, DRAWING_POINTS_MAX);
+                            if (index > 0) {
+                                complex_point = (complex_t *)malloc(sizeof(complex_t) * index);
+                                for (int j = 0; j < index; j++) {
+                                    complex_point[j].real = drawing_points[j].x;
+                                    complex_point[j].imag = drawing_points[j].y;
+                                }
+                                complex_point = DFT(complex_point, index);
+                                epicycles = dft_to_epicycles(complex_point, index);
+                                proceed = true;
+                                show_file_picker = false;
+                            }
+                            restart_clicked = true;
+                        }
+                    }
+                    
+                    /* Scroll indicator */
+                    if (num_shape_files > visible_files) {
+                        DrawText(TextFormat("[%d-%d of %d]", file_scroll + 1, 
+                                 file_scroll + visible_files > num_shape_files ? num_shape_files : file_scroll + visible_files,
+                                 num_shape_files), 
+                                 picker_x + 10, picker_y + picker_h - 18, 10, (Color){80, 80, 100, 255});
+                    }
+                }
             }
 
         was_drawing = is_drawing;
