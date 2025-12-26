@@ -105,7 +105,20 @@ int main (void)
     /* Scan for shape files on startup using _findfirst/_findnext */
     {
         struct _finddata_t fileinfo;
+        /* Scan for .txt files */
         intptr_t handle = _findfirst("shapes/*.txt", &fileinfo);
+        if (handle != -1) {
+            do {
+                if (!(fileinfo.attrib & _A_SUBDIR) && num_shape_files < MAX_SHAPE_FILES) {
+                    strncpy(shape_files[num_shape_files], fileinfo.name, MAX_FILENAME_LEN - 1);
+                    shape_files[num_shape_files][MAX_FILENAME_LEN - 1] = '\0';
+                    num_shape_files++;
+                }
+            } while (_findnext(handle, &fileinfo) == 0 && num_shape_files < MAX_SHAPE_FILES);
+            _findclose(handle);
+        }
+        /* Scan for .svg files */
+        handle = _findfirst("shapes/*.svg", &fileinfo);
         if (handle != -1) {
             do {
                 if (!(fileinfo.attrib & _A_SUBDIR) && num_shape_files < MAX_SHAPE_FILES) {
@@ -134,6 +147,41 @@ int main (void)
             /* Reset restart flag when mouse is released */
             if (!IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
                 restart_clicked = false;
+            }
+            
+            /* Handle drag and drop of SVG/TXT files */
+            if (IsFileDropped()) {
+                FilePathList dropped = LoadDroppedFiles();
+                if (dropped.count > 0) {
+                    const char *filepath = dropped.paths[0];
+                    int len = (int)strlen(filepath);
+                    float center_x = WINDOW_WIDTH / 2.0f;
+                    float center_y = WINDOW_HEIGHT / 2.0f;
+                    
+                    /* Reset any existing animation */
+                    if (complex_point) { free(complex_point); complex_point = NULL; }
+                    if (epicycles) { free(epicycles); epicycles = NULL; }
+                    t = 0; trace_index = 0; animation_done = false;
+                    
+                    /* Check extension and load appropriately */
+                    if (len > 4 && (strcmp(&filepath[len-4], ".svg") == 0 || strcmp(&filepath[len-4], ".SVG") == 0)) {
+                        index = load_svg_file(drawing_points, filepath, center_x, center_y, 500.0f, DRAWING_POINTS_MAX);
+                    } else if (len > 4 && (strcmp(&filepath[len-4], ".txt") == 0 || strcmp(&filepath[len-4], ".TXT") == 0)) {
+                        index = load_shape_from_file(drawing_points, filepath, center_x, center_y, 500.0f, DRAWING_POINTS_MAX);
+                    }
+                    
+                    if (index > 0) {
+                        complex_point = (complex_t *)malloc(sizeof(complex_t) * index);
+                        for (int j = 0; j < index; j++) {
+                            complex_point[j].real = drawing_points[j].x;
+                            complex_point[j].imag = drawing_points[j].y;
+                        }
+                        complex_point = DFT(complex_point, index);
+                        epicycles = dft_to_epicycles(complex_point, index);
+                        proceed = true;
+                    }
+                }
+                UnloadDroppedFiles(dropped);
             }
             
             if (IsMouseButtonDown(MOUSE_BUTTON_LEFT) && !mouse_on_panel && !restart_clicked && !proceed) {
@@ -292,7 +340,7 @@ int main (void)
                     restart_clicked = true;
                 }
             } else {
-                DrawText("Draw, pick a shape, or load file:", PANEL_X + PANEL_PADDING, y_pos, 14, (Color){120, 120, 140, 255});
+                DrawText("Draw, pick a shape, or drag SVG:", PANEL_X + PANEL_PADDING, y_pos, 14, (Color){120, 120, 140, 255});
                 y_pos += 25;
                 
                 /* Auto-draw shape buttons - 2 columns */
@@ -397,7 +445,15 @@ int main (void)
                                        (Color){50, 50, 70, 255}, (Color){70, 80, 110, 255})) {
                             char filepath[128];
                             snprintf(filepath, sizeof(filepath), "shapes/%s", shape_files[i]);
-                            index = load_shape_from_file(drawing_points, filepath, center_x, center_y, 500.0f, DRAWING_POINTS_MAX);
+                            
+                            /* Check file extension and use appropriate loader */
+                            int len = (int)strlen(shape_files[i]);
+                            if (len > 4 && strcmp(&shape_files[i][len-4], ".svg") == 0) {
+                                index = load_svg_file(drawing_points, filepath, center_x, center_y, 500.0f, DRAWING_POINTS_MAX);
+                            } else {
+                                index = load_shape_from_file(drawing_points, filepath, center_x, center_y, 500.0f, DRAWING_POINTS_MAX);
+                            }
+                            
                             if (index > 0) {
                                 complex_point = (complex_t *)malloc(sizeof(complex_t) * index);
                                 for (int j = 0; j < index; j++) {
@@ -421,6 +477,11 @@ int main (void)
                                  picker_x + 10, picker_y + picker_h - 18, 10, (Color){80, 80, 100, 255});
                     }
                 }
+                
+                /* Drop zone hint at bottom of screen */
+                DrawText("Drag & drop SVG or TXT file anywhere", 
+                         WINDOW_WIDTH/2 - MeasureText("Drag & drop SVG or TXT file anywhere", 14)/2,
+                         WINDOW_HEIGHT - 40, 14, (Color){60, 60, 80, 255});
             }
 
         was_drawing = is_drawing;

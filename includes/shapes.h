@@ -21,4 +21,7 @@ int generate_spiral(Vector2 *points, float cx, float cy, float max_radius, int n
 /* Load shape from a text file (one "x y" coordinate per line) */
 int load_shape_from_file(Vector2 *points, const char *filename, float cx, float cy, float scale, int max_points);
 
+/* Load shape from an SVG file (extracts first path element) */
+int load_svg_file(Vector2 *points, const char *filename, float cx, float cy, float scale, int max_points);
+
 #endif
