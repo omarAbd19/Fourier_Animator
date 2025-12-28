@@ -18,6 +18,10 @@ build/
 *.exp
 *.lib
 
+# Exception: allow raylib libraries
+!libs/raylib.lib
+!libs/raylibdll.lib
+
 # Visual Studio files
 .vs/
 *.vcxproj.user
