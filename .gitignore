@@ -13,6 +13,8 @@ main
 *.ilk
 
 # Build output
+# Build output
+build/
 *.exp
 *.lib
 
