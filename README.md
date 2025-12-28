@@ -37,7 +37,7 @@ A real-time visualization tool that demonstrates the Discrete Fourier Transform 
 
 ### Compile & Run
 ```bash
-python compile_run.py
+python build.py
 ```
 
 Or compile manually:
