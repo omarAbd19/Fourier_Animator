@@ -125,7 +125,10 @@ class Builder:
         if self.release:
             flags.extend(["/O2", "/DNDEBUG"])  # Optimize for speed
         else:
-            flags.extend(["/W4", "/WX", "/Zi"])  # Warnings + debug info
+            flags.extend([
+                "/W4", "/WX", "/Zi",
+                f"/Fd{self.config.build_dir}\\",  # PDB files go to build/
+            ])
         
         return flags
     
